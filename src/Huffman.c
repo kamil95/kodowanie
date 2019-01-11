@@ -63,7 +63,7 @@ int main(void) {
 
     double entropy = 0;
     double p = 0;
-
+    int nonzero = 0;
     for(int i = 0; i < 256; i++)
     {
     	if(byte_count[i] != 0)
@@ -71,9 +71,11 @@ int main(void) {
 			p =  (double)byte_count[i]/(double)sum;
 		    printf("p: %c, %f\n", (char)i, p);
 			entropy = entropy + log2(p)*p;
+			nonzero++;
 		}
     }
     entropy = -entropy;
+    printf("Hmax: %f\n", log2(nonzero));
     printf("entropia: %f\n", entropy);
 
 

@@ -13,18 +13,20 @@
 #include <string.h>
 #include <stdint.h>
 #include <time.h>
+#include <math.h>
 int get_maximum_count_index(int* table, int N);
 
-int character_count[256];
+int byte_count[256];
 
 int main(void) {
     clock_t start = clock();
+
 	// printf("%i", sizeof(character_count)); zwróci sizeof(int) * 256
 	//memset(character_count, 0, sizeof(character_count));
 
-    FILE *f = fopen("notatki.txt", "r");    // otwiera plik do odczytu (musi istniec)
+    FILE *f = fopen("notatki.txt", "rb");    // otwiera plik do odczytu, tryb binarny
 
-    if (f == NULL)
+    if (f == NULL) //  (musi istniec)
     {
         perror("Nie udalo sie otworzyc pliku notatki.txt");
         return 1;
@@ -32,12 +34,11 @@ int main(void) {
     puts("Plik otwarty pomyslnie!");
 
 
-
-    char character = 0;
-    do {
-    	character = fgetc(f);
-    	character_count[(uint8_t)character]++;
-    } while (character != EOF);
+    uint8_t data_byte = 0;
+    while (fread(&data_byte, 1, 1, f))
+    {
+    	byte_count[data_byte]++;
+    }
 
 
 
@@ -45,11 +46,37 @@ int main(void) {
     int x = ftell(f);
     printf("Rozmiar pliku %i Bytes.\n", x);
     fseek(f,0,0); // mode = 0 -> pos = offset
-    int index = get_maximum_count_index(character_count, 256);
-    printf("Ilosc: a: %i, Spacji: %i, z: %i, G: %i\n", character_count[(int)'a'], character_count[(int)' '], character_count[(int)'z'], character_count[(int)'G']);
-    printf("Najwiecej jest: [%c/%i]\n", (char)index, character_count[index] );
+    int index = get_maximum_count_index(byte_count, 256);
+    printf("Ilosc: a: %i, Spacji: %i, z: %i, G: %i\n", byte_count[(int)'a'], byte_count[(int)' '], byte_count[(int)'z'], byte_count[(int)'G']);
+    printf("Najwiecej jest: [%c/%i]\n", (char)index, byte_count[index] );
 
     fclose(f);
+
+    uint64_t sum = 0;
+    for(int i = 0; i < 256; i++)
+    {
+    	//printf("[%c/%i]\n", (char)i, byte_count[i]);
+    	sum = sum + byte_count[i];
+    }
+
+    printf("sum: %u\n", sum);
+
+    double entropy = 0;
+    double p = 0;
+
+    for(int i = 0; i < 256; i++)
+    {
+    	if(byte_count[i] != 0)
+		{
+			p =  (double)byte_count[i]/(double)sum;
+		    printf("p: %c, %f\n", (char)i, p);
+			entropy = entropy + log2(p)*p;
+		}
+    }
+    entropy = -entropy;
+    printf("entropia: %f\n", entropy);
+
+
 
     clock_t end = clock();
 

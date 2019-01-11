@@ -14,13 +14,29 @@
 #include <stdint.h>
 #include <time.h>
 #include <math.h>
+
+#define MAX_CODE_LENGTH 128
+
 int get_maximum_count_index(int* table, int N);
 
 int byte_count[256];
 
+typedef struct symbol
+{
+	struct symbol* upper;
+	struct symbol* lower;
+	uint8_t primitive_symbol;
+	int is_primitive;
+	double p;
+	int code_length;
+	char code[MAX_CODE_LENGTH];
+};
+
+struct symbol symbol_table[256];
+int symbols_count;
+
 int main(void) {
     clock_t start = clock();
-
 	// printf("%i", sizeof(character_count)); zwróci sizeof(int) * 256
 	//memset(character_count, 0, sizeof(character_count));
 
@@ -100,6 +116,5 @@ int get_maximum_count_index(int* table, int N)
 			max = table[i];
 		}
 	}
-
 	return index;
 }

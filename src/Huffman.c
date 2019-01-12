@@ -16,10 +16,11 @@
 #include <math.h>
 
 #define MAX_CODE_LENGTH 128
+#define BITS_8  2048
 
 int get_maximum_count_index(int* table, int N);
 
-int byte_count[256];
+int byte_count[BITS_8];
 
 typedef struct symbol
 {
@@ -30,10 +31,10 @@ typedef struct symbol
     uint8_t is_primitive;
 	uint8_t primitive_symbol; //
 	uint8_t code_length;
-	//char code[MAX_CODE_LENGTH];
+	char primitive_code[MAX_CODE_LENGTH];
 };
 
-struct symbol symbols_table[256];
+struct symbol symbols_table[BITS_8];
 int symbols_count;
 
 // Porównywacz
@@ -45,9 +46,19 @@ int compare_symbol_p (const void * a, const void * b)
     else return 1;
 }
 
+int compare_symbol_index_p (const void * a, const void * b)
+{
+    int* _a = (int*)a;
+    int* _b = (int*)b;
+    struct symbol *sa = &symbols_table[*_a];
+    struct symbol *sb = &symbols_table[*_b];
+    if(sa->p > sb->p) return -1;
+    else return 1;
+}
+
 int main(void) {
     clock_t start = clock();
-	// printf("%i", sizeof(character_count)); zwr�ci sizeof(int) * 256
+	// printf("%i", sizeof(character_count)); zwr�ci sizeof(int) * BITS_8
 	//memset(character_count, 0, sizeof(character_count));
 
     FILE *f = fopen("notatki.txt", "rb");    // otwiera plik do odczytu, tryb binarny
@@ -72,14 +83,14 @@ int main(void) {
     int x = ftell(f);
     printf("Rozmiar pliku %i Bytes.\n", x);
     fseek(f,0,0); // mode = 0 -> pos = offset
-    int index = get_maximum_count_index(byte_count, 256);
+    int index = get_maximum_count_index(byte_count, BITS_8);
     printf("Ilosc: a: %i, Spacji: %i, z: %i, G: %i\n", byte_count[(int)'a'], byte_count[(int)' '], byte_count[(int)'z'], byte_count[(int)'G']);
     printf("Najwiecej jest: [%c/%i]\n", (char)index, byte_count[index] );
 
     fclose(f);
 
     uint64_t sum = 0;
-    for(int i = 0; i < 256; i++)
+    for(int i = 0; i < BITS_8; i++)
     {
     	//printf("[%c/%i]\n", (char)i, byte_count[i]);
     	sum = sum + byte_count[i];
@@ -91,7 +102,9 @@ int main(void) {
     double p = 0;
     symbols_count = 0;
 
-    for(int i = 0; i < 256; i++)
+    int symbols_index_table[BITS_8];
+
+    for(int i = 0; i < BITS_8; i++)
     {
     	if(byte_count[i] != 0)
 		{
@@ -102,6 +115,7 @@ int main(void) {
             symbols_table[symbols_count].is_primitive = 1;
             symbols_table[symbols_count].primitive_symbol = (uint8_t)i;
             symbols_table[symbols_count].p = p;
+            symbols_index_table[symbols_count] = symbols_count;
             symbols_count++;
 		}
     }
@@ -111,14 +125,71 @@ int main(void) {
 
     
     // KODOWANIE SYMBOLI: START
+
+    //sortowanie od najwiekszych prawdopodobienstw do najmniejszych
+    //qsort(symbols_table, symbols_count, sizeof(struct symbol), compare_symbol_p);
+    int symbols_new_index = symbols_count;
     int symbols_temp_count = symbols_count;
 
-    qsort(symbols_table, symbols_count, sizeof(struct symbol), compare_symbol_p);
-    //sortowanie od najwiekszych prawdopodobienstw do najmniejszych
+    while(symbols_temp_count > 1)
+    {
+        qsort(symbols_index_table, symbols_temp_count, sizeof(int), compare_symbol_index_p);
+        
+        struct symbol * s = &symbols_table[symbols_new_index];
 
+        s->is_primitive = 0;
+        s->upper_child_i = symbols_index_table[symbols_temp_count-2];
+        symbols_table[s->upper_child_i].parent_i = symbols_new_index;
+        s->lower_child_i = symbols_index_table[symbols_temp_count-1];
+        symbols_table[s->lower_child_i].parent_i = symbols_new_index;
+
+        s->p = symbols_table[s->upper_child_i].p + symbols_table[s->lower_child_i].p;
+        symbols_index_table[symbols_temp_count-2] = symbols_new_index; 
+        symbols_temp_count--;
+        symbols_new_index++;
+    }
+
+    for(int i = 0; i < symbols_new_index; i++)
+    {
+        printf("p: %f\n", symbols_table[i].p);
+    }
     // KODOWANIE SYMBOLI: END
 
+    int child_i;
+    struct symbol *s, *parent;
+    int L = 0;
+    double Lsr = 0;
+    double probal = 0;
+    for(int i = 0; i < symbols_count; i++)
+    {
+        s = &symbols_table[i]; 
+        printf("%c[%f]: ", s->primitive_symbol, s->p);
+        probal = s->p;
+        child_i = i;
+        while(s->parent_i != 0)
+        {
+            parent = &symbols_table[s->parent_i];
+            
+            if(parent->upper_child_i == child_i)
+            {
+                child_i = s->parent_i;
+                printf("1");
+                L++;
+            }
+            else if(parent->lower_child_i == child_i)
+            {
+                child_i = s->parent_i;
+                printf("0");
+                L++;
+            }
+            s = parent;
+        }
+        printf("\n");
+        Lsr=Lsr+L*probal;
+        L = 0;
+    }
 
+    printf("Lsr: %f\n", Lsr);
     clock_t end = clock();
 
     double cpu_time_used = ((double) (end - start)) / (double)CLOCKS_PER_SEC;

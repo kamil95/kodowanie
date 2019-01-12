@@ -49,6 +49,9 @@
 .cproject
 .project
 .settings
+.vscode
+
+
 modules.order
 Module.symvers
 Mkfile.old

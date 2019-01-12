@@ -2,9 +2,9 @@
  ============================================================================
  Name        : Huffman.c
  Author      : Kamil Trzebiatowski
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
+ Version     : 0.2
+ Copyright   : GNU GPL
+ Description : Huffman coding
  ============================================================================
  */
 
@@ -23,21 +23,31 @@ int byte_count[256];
 
 typedef struct symbol
 {
-	struct symbol* upper;
-	struct symbol* lower;
-	uint8_t primitive_symbol;
-	int is_primitive;
-	double p;
-	int code_length;
-	char code[MAX_CODE_LENGTH];
+	int upper_child_i; // child is to the left of the tree
+	int lower_child_i;
+    int parent_i; //parent is to the right of the tree
+    double p; //probability of symbol
+    uint8_t is_primitive;
+	uint8_t primitive_symbol; //
+	uint8_t code_length;
+	//char code[MAX_CODE_LENGTH];
 };
 
-struct symbol symbol_table[256];
+struct symbol symbols_table[256];
 int symbols_count;
+
+// PorÃ³wnywacz
+int compare_symbol_p (const void * a, const void * b)
+{
+    struct symbol *_a = (struct symbol*)a;
+    struct symbol *_b = (struct symbol*)b;
+    if(_a->p > _b->p) return -1;
+    else return 1;
+}
 
 int main(void) {
     clock_t start = clock();
-	// printf("%i", sizeof(character_count)); zwróci sizeof(int) * 256
+	// printf("%i", sizeof(character_count)); zwrï¿½ci sizeof(int) * 256
 	//memset(character_count, 0, sizeof(character_count));
 
     FILE *f = fopen("notatki.txt", "rb");    // otwiera plik do odczytu, tryb binarny
@@ -79,7 +89,8 @@ int main(void) {
 
     double entropy = 0;
     double p = 0;
-    int nonzero = 0;
+    symbols_count = 0;
+
     for(int i = 0; i < 256; i++)
     {
     	if(byte_count[i] != 0)
@@ -87,13 +98,25 @@ int main(void) {
 			p =  (double)byte_count[i]/(double)sum;
 		    printf("p: %c, %f\n", (char)i, p);
 			entropy = entropy + log2(p)*p;
-			nonzero++;
+
+            symbols_table[symbols_count].is_primitive = 1;
+            symbols_table[symbols_count].primitive_symbol = (uint8_t)i;
+            symbols_table[symbols_count].p = p;
+            symbols_count++;
 		}
     }
     entropy = -entropy;
-    printf("Hmax: %f\n", log2(nonzero));
+    printf("Hmax: %f\n", log2(symbols_count));
     printf("entropia: %f\n", entropy);
 
+    
+    // KODOWANIE SYMBOLI: START
+    int symbols_temp_count = symbols_count;
+
+    qsort(symbols_table, symbols_count, sizeof(struct symbol), compare_symbol_p);
+    //sortowanie od najwiekszych prawdopodobienstw do najmniejszych
+
+    // KODOWANIE SYMBOLI: END
 
 
     clock_t end = clock();

@@ -21,8 +21,11 @@
 int get_maximum_count_index(int* table, int N);
 void reverse_string(char *str);
 double calculate_codes();
+uint8_t get_symbol_index(uint8_t data_byte);
 
 int byte_count[BITS_8];
+
+
 
 typedef struct symbol
 {
@@ -59,17 +62,19 @@ int compare_symbol_index_p (const void * a, const void * b)
     else return 1;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
     clock_t start = clock();
 	// printf("%i", sizeof(character_count)); zwr�ci sizeof(int) * BITS_8
 	//memset(character_count, 0, sizeof(character_count));
     FILE * f_in;
+    printf("%s\n",argv[0]);
     if(argc > 1)
     {
         f_in = fopen(argv[1], "rb");
     } else 
     {
-        f_in = fopen("notatki.txt", "rb");    // otwiera plik do odczytu, tryb binarny
+        f_in = fopen("C:\\Users\\kamil\\Documents\\eclipse-workspace\notatki.txt", "rb");    // otwiera plik do odczytu, tryb binarny
     }
 
     if (f_in == NULL) //  (musi istniec)
@@ -122,25 +127,67 @@ int main(int argc, char **argv) {
 
     printf("Plik otwarty pomyslnie!");
 
-    data_byte = 0;
-    uint32_t read_size = 0;
-    uint32_t write_buffer = 0;
-    uint8_t buffer_i = 31;
-    uint8_t symbol_index = 0;
-    struct symbol *s;
-    
+    data_byte = 0; //byte read - to translate and write
+    uint8_t symbol_index = 0; //index of symbol to write
 
+    uint32_t write_buffer = 0; //wirte to file buffer (4*8=32 bits)
+    uint8_t buffer_bits_remaining = (sizeof(write_buffer)*8); // buffer counter, to write bits in proper position of write_buffer
+
+    struct symbol *s;
+    uint8_t bits_to_write = 0; //number of code bits to write to file
+
+    uint32_t code_masked;
+    uint8_t code_to_write;
+    uint8_t mask;
     //laduj bajty z f_in, translatuj i wpisuj do f_out
     while (fread(&data_byte, 1, 1, f_in))
     {
-        symbol_index = get_symbol_index(data_byte); //TODO
-        s = &symbols_table[symbol_index];
-    	write_buffer += (s->primitive_code << (buffer_i - s->code_length));
-        //bedzie zapisywac 4bajty do pliku gdy zapelni sie 4 bajtowy bufor
-        //byte_count[data_byte]++;
-        read_size = fread(&data_byte,1,1,f_out);
+        symbol_index = get_symbol_index(data_byte); 
+        s = &symbols_table[symbol_index]; //get symbol according to read byte in input file
+        code_to_write = s->primitive_code;
+        bits_to_write = s->code_length;
+
+        while(bits_to_write > 0)
+        {
+            if(bits_to_write <= buffer_bits_remaining)
+            {
+                write_buffer += (code_to_write << (buffer_bits_remaining - bits_to_write));
+                buffer_bits_remaining = buffer_bits_remaining - bits_to_write;
+                bits_to_write = 0;
+            }
+            else
+            {
+                code_masked = code_to_write >> (bits_to_write-buffer_bits_remaining);
+                write_buffer += code_masked;
+                mask = ~((-1) << (bits_to_write-buffer_bits_remaining));
+                code_to_write = code_to_write & mask;
+                bits_to_write = bits_to_write - buffer_bits_remaining;
+                buffer_bits_remaining = 0;
+            }
+
+            //bedzie zapisywac 4bajty do pliku gdy zapelni sie 4 bajtowy bufor
+            //byte_count[data_byte]++;
+            if(buffer_bits_remaining == 0)
+            {
+                if(fwrite(&write_buffer, sizeof(write_buffer), 1, f_out) != 1)
+                {
+                    perror("Error writing to file");
+                    return -1;
+                }
+                buffer_bits_remaining = (sizeof(write_buffer)*8);
+                write_buffer = 0;
+            }
+            
+        }
 
     }   //count number of occurences of all characters
+
+    //write non-full buffer to file
+    if(fwrite(&write_buffer, sizeof(write_buffer), 1, f_out) != 1)
+    {
+        perror("Error writing to file");
+        return -1;
+    }
 
     fseek(f_out, 0, 2); // (file, offset, mode) / mode=2 -> pos = eof - offset
     x = ftell(f_out); //find size of file
@@ -157,9 +204,23 @@ int main(int argc, char **argv) {
     double cpu_time_used = ((double) (end - start)) / (double)CLOCKS_PER_SEC;
     printf("for loop took %f seconds to execute \n", cpu_time_used);
 
+    system("pause");
 	return EXIT_SUCCESS;
 }
 
+uint8_t get_symbol_index(uint8_t data_byte)
+{
+    uint8_t index;
+    for(int i = 0; i < symbols_count; i++)
+    {
+        if(symbols_table[i].primitive_symbol == data_byte)
+        {
+            index = i;
+            return index;
+        }
+    }
+    return 255;
+}
 double calculate_codes()
 {
     /*find sum of all character occurences*/
